@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GemmaStudio | Powered by Gemma on Gemini API</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Font Awesome / Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Markdown & Highlight.js & DOMPurify -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-layout">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-atom"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>GemmaStudio</h1>
+                    <span class="subtext">Google Gemini API</span>
+                </div>
+            </div>
+
+            <button class="btn btn-new-chat" id="newChatBtn">
+                <i class="fa-solid fa-plus"></i>
+                <span>New Session</span>
+            </button>
+
+            <!-- Navigation Tabs: Controls vs History -->
+            <div class="sidebar-tab-nav">
+                <button type="button" class="sidebar-tab-btn active" data-tab="controls" id="tabControlsBtn">
+                    <i class="fa-solid fa-sliders"></i> Controls
+                </button>
+                <button type="button" class="sidebar-tab-btn" data-tab="history" id="tabHistoryBtn">
+                    <i class="fa-solid fa-clock-rotate-left"></i> History <span class="history-count-badge" id="historyCountBadge">0</span>
+                </button>
+            </div>
+
+            <!-- Tab 1: Controls -->
+            <div class="sidebar-tab-content active" id="tabControlsContent">
+                <div class="sidebar-section">
+                    <label class="section-label"><i class="fa-solid fa-microchip"></i> Model</label>
+                    <div class="custom-select-wrapper">
+                        <select id="modelSelect" class="form-control">
+                            {% for m in models %}
+                            <option value="{{ m.id }}" {% if loop.first %}selected{% endif %}>
+                                {{ m.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="model-badge" id="modelBadge">Recommended MoE</div>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="flex-between">
+                        <label class="section-label"><i class="fa-solid fa-brain"></i> Thinking Mode</label>
+                        <span class="badge badge-accent" id="thinkingBadge">HIGH</span>
+                    </div>
+                    <div class="toggle-container">
+                        <button type="button" class="toggle-btn active" data-level="high" id="thinkingHighBtn">
+                            <i class="fa-solid fa-lightbulb"></i> High Reasoning
+                        </button>
+                        <button type="button" class="toggle-btn" data-level="minimal" id="thinkingMinimalBtn">
+                            <i class="fa-solid fa-bolt"></i> Minimal
+                        </button>
+                    </div>
+                    <p class="section-help">Enables Gemma's internal chain-of-thought for deep algorithmic logic and complex proofs.</p>
+                </div>
+
+                <div class="sidebar-section">
+                    <label class="section-label"><i class="fa-solid fa-masks-theater"></i> System Persona</label>
+                    <select id="personaSelect" class="form-control mb-2">
+                        <option value="default">Default Helpful Assistant</option>
+                        <option value="tea_master">Kyoto Tea Master (Calm & Poetic)</option>
+                        <option value="code_architect">Senior Code Architect</option>
+                        <option value="math_tutor">Algorithmic Math & Proofs Tutor</option>
+                        <option value="custom">Custom Persona...</option>
+                    </select>
+                    <textarea id="systemInstruction" class="form-control persona-textarea" placeholder="Enter system instructions..." rows="3"></textarea>
+                </div>
+
+                <div class="sidebar-section">
+                    <label class="section-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Quick Prompts</label>
+                    <div class="quick-prompts">
+                        <button class="quick-prompt-btn" data-prompt="What is the chemical formula for water and explain why ice floats on liquid water?" data-thinking="high" data-persona="default">
+                            <i class="fa-solid fa-flask"></i> Water & Ice Density
+                        </button>
+                        <button class="quick-prompt-btn" data-prompt="Write an optimized Python algorithm to detect a cycle in a directed graph with O(V+E) time complexity." data-thinking="high" data-persona="code_architect">
+                            <i class="fa-solid fa-code"></i> Directed Graph Cycles
+                        </button>
+                        <button class="quick-prompt-btn" data-prompt="What is the inner spiritual purpose of the traditional Japanese tea ceremony?" data-persona="tea_master">
+                            <i class="fa-solid fa-leaf"></i> Kyoto Tea Ceremony
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: ChatGPT-like Search & History -->
+            <div class="sidebar-tab-content" id="tabHistoryContent" style="display: none;">
+                <div class="history-search-box">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="historySearchInput" class="form-control history-search-input" placeholder="Search chats & prompts..." autocomplete="off">
+                    <button type="button" id="clearSearchBtn" class="clear-search-btn" title="Clear search" style="display: none;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="history-header">
+                    <span class="history-section-title">Saved Chats (<span id="historyFilteredCount">0</span>)</span>
+                    <button type="button" class="history-clear-all-btn" id="clearAllHistoryBtn" title="Clear All History">
+                        <i class="fa-regular fa-trash-can"></i> Clear
+                    </button>
+                </div>
+
+                <div class="history-list" id="historyList">
+                    <div class="history-empty">
+                        <i class="fa-regular fa-comments"></i>
+                        <p>No chat history yet.<br>Start chatting to see sessions saved here.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="api-status-pill" id="apiStatusPill">
+                    <span class="status-dot dot-yellow" id="statusDot"></span>
+                    <span class="status-text" id="statusText">Checking API...</span>
+                </div>
+                <div class="footer-actions">
+                    <button class="icon-btn" id="openSettingsBtn" title="API Key Settings">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button class="icon-btn" id="openSnippetBtn" title="Get Code Snippets">
+                        <i class="fa-solid fa-code"></i>
+                    </button>
+                    <button class="icon-btn" id="exportChatBtn" title="Export Conversation">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Arena -->
+        <main class="main-content">
+            <!-- Top Navbar -->
+            <header class="navbar">
+                <div class="navbar-left">
+                    <span class="active-model-title" id="activeModelTitle">gemma-4-26b-a4b-it</span>
+                    <span class="feature-tag clickable-tag" id="tagGeminiHosted" title="Hosted directly on Google Gemini API infrastructure - Click to view official docs" role="button" tabindex="0">
+                        <i class="fa-solid fa-bolt"></i> Gemini Hosted
+                    </span>
+                    <span class="feature-tag clickable-tag" id="tagMultimodal" title="Supports Text + Vision - Click to upload an image" role="button" tabindex="0">
+                        <i class="fa-solid fa-camera"></i> Multimodal
+                    </span>
+                </div>
+                <div class="navbar-right">
+                    <button type="button" class="btn btn-outline-sm btn-highlight" id="navExperimentBtn" title="Launch Gemma Experiment & Benchmark Studio">
+                        <i class="fa-solid fa-flask-vial"></i> Experiment Studio
+                    </button>
+                    <button type="button" class="btn btn-outline-sm" id="navHistoryToggleBtn" title="Toggle Search & History">
+                        <i class="fa-solid fa-clock-rotate-left"></i> History
+                    </button>
+                    <a href="https://ai.google.dev/gemma/docs/core/gemma_on_gemini_api" target="_blank" class="nav-link">
+                        <i class="fa-solid fa-book-open"></i> Docs
+                    </a>
+                    <a href="https://aistudio.google.com/apikey" target="_blank" class="btn btn-outline-sm">
+                        <i class="fa-solid fa-key"></i> Get API Key
+                    </a>
+                </div>
+            </header>
+
+            <!-- Chat Messages Container -->
+            <div class="chat-container" id="chatContainer">
+                <div class="welcome-hero" id="welcomeHero">
+                    <div class="hero-logo">
+                        <i class="fa-solid fa-gem"></i>
+                    </div>
+                    <h2>Welcome to GemmaStudio</h2>
+                    <p>Experience Google's open models hosted natively on the Gemini API. Test step-by-step thinking, multimodal vision, and customized system instructions.</p>
+                    
+                    <div class="feature-grid">
+                        <div class="feature-card clickable" id="cardThinking" role="button" tabindex="0" title="Click to test High Reasoning with an algorithmic prompt">
+                            <div class="feat-icon"><i class="fa-solid fa-brain"></i></div>
+                            <div class="feat-header">
+                                <h3>Thinking Process</h3>
+                                <span class="feat-action-badge">Try <i class="fa-solid fa-arrow-right"></i></span>
+                            </div>
+                            <p>Toggle deep reasoning for algorithmic challenges and mathematical proofs.</p>
+                        </div>
+                        <div class="feature-card clickable" id="cardVision" role="button" tabindex="0" title="Click to upload an image for vision analysis">
+                            <div class="feat-icon"><i class="fa-solid fa-image"></i></div>
+                            <div class="feat-header">
+                                <h3>Vision Understanding</h3>
+                                <span class="feat-action-badge">Upload <i class="fa-solid fa-arrow-up-from-bracket"></i></span>
+                            </div>
+                            <p>Drag and drop images, diagrams, or charts for multimodal Gemma analysis.</p>
+                        </div>
+                        <div class="feature-card clickable" id="cardExport" role="button" tabindex="0" title="Click to view and export Python, Node.js, and cURL code">
+                            <div class="feat-icon"><i class="fa-solid fa-terminal"></i></div>
+                            <div class="feat-header">
+                                <h3>Exportable Code</h3>
+                                <span class="feat-action-badge">View <i class="fa-solid fa-code"></i></span>
+                            </div>
+                            <p>Instantly copy production Python, Node.js, and cURL snippets.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="messages-list" id="messagesList"></div>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="input-panel">
+                <!-- Image attachment preview bar -->
+                <div class="attachment-preview-container" id="attachmentContainer" style="display: none;">
+                    <div class="preview-item">
+                        <img id="imagePreview" src="" alt="attachment preview">
+                        <button class="remove-attachment-btn" id="removeAttachmentBtn" title="Remove image">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <form class="input-form" id="chatForm">
+                    <input type="file" id="fileInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
+                    
+                    <button type="button" class="btn-attach" id="attachBtn" title="Upload Image (PNG, JPG, WebP)">
+                        <i class="fa-solid fa-paperclip"></i>
+                    </button>
+
+                    <textarea 
+                        id="promptInput" 
+                        class="chat-input" 
+                        placeholder="Ask Gemma anything, or upload an image to analyze... (Shift+Enter for new line)" 
+                        rows="1"
+                    ></textarea>
+
+                    <button type="submit" class="btn-send" id="sendBtn" title="Send Message">
+                        <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                </form>
+                <div class="input-footer">
+                    <span>Press <strong>Enter</strong> to send, <strong>Shift + Enter</strong> for newline</span>
+                    <span id="tokenTimer"></span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-backdrop" id="settingsModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-sliders"></i> API Settings</h3>
+                <button class="modal-close-btn" id="closeSettingsBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">
+                    Enter your Gemini API key from Google AI Studio. It can be saved to your local <code>.env</code> file or kept for this session only.
+                </p>
+                <div class="form-group">
+                    <label>Gemini API Key</label>
+                    <div class="input-with-icon">
+                        <input type="password" id="apiKeyInput" class="form-control" placeholder="AIzaSy...">
+                        <button type="button" class="toggle-password-btn" id="togglePasswordBtn">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" id="saveToEnvCheckbox" checked>
+                    <label for="saveToEnvCheckbox">Save to local <code>.env</code> file</label>
+                </div>
+                <div class="notice-box">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Your key remains strictly local on your machine and is never sent to third parties.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="https://aistudio.google.com/apikey" target="_blank" class="btn btn-link">
+                    Get free key at Google AI Studio <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                </a>
+                <button type="button" class="btn btn-primary" id="saveKeyBtn">Save Key</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Snippets Modal -->
+    <div class="modal-backdrop" id="snippetModal">
+        <div class="modal-card modal-lg">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-code"></i> Generated Code Snippets</h3>
+                <button class="modal-close-btn" id="closeSnippetBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="tab-header">
+                    <button class="tab-btn active" data-tab="python">Python (google-genai)</button>
+                    <button class="tab-btn" data-tab="javascript">JavaScript (@google/genai)</button>
+                    <button class="tab-btn" data-tab="curl">cURL (REST)</button>
+                </div>
+                <div class="tab-content">
+                    <div class="code-container">
+                        <pre><code id="snippetCode" class="language-python"># Loading...</code></pre>
+                        <button class="copy-snippet-btn" id="copySnippetBtn" title="Copy code">
+                            <i class="fa-regular fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted">Exact code based on your active model, thinking mode, and persona settings.</span>
+                <button type="button" class="btn btn-secondary" id="closeSnippetFooterBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gemma Experiment & Benchmark Studio Modal -->
+    <div class="modal-backdrop" id="experimentModal">
+        <div class="modal-card modal-xl">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <span class="badge badge-accent"><i class="fa-solid fa-flask-vial"></i> Best Use of Gemma 4</span>
+                    <h3>Gemma Experiment & Code Validation Studio</h3>
+                </div>
+                <button class="modal-close-btn" id="closeExperimentBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="experiment-toolbar">
+                    <div class="exp-control-group">
+                        <label for="suiteSelect"><i class="fa-solid fa-list-check"></i> Benchmark Suite:</label>
+                        <select id="suiteSelect" class="form-control exp-select">
+                            <option value="math_reasoning">Mathematical & Algorithmic Reasoning (High Thinking)</option>
+                            <option value="code_generation">Code Synthesis & Bug Fixing (google-genai)</option>
+                            <option value="system_instruction">System Instruction Adherence</option>
+                        </select>
+                    </div>
+                    <div class="exp-actions">
+                        <button type="button" class="btn btn-primary" id="runBenchmarkBtn">
+                            <i class="fa-solid fa-play"></i> Run Benchmark Suite
+                        </button>
+                        <button type="button" class="btn btn-outline-sm" id="exportMarkdownBtn" disabled>
+                            <i class="fa-solid fa-file-arrow-down"></i> Export Markdown Report
+                        </button>
+                        <button type="button" class="btn btn-outline-sm" id="exportJsonBtn" disabled>
+                            <i class="fa-solid fa-code"></i> Export JSON
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Suite Info Card -->
+                <div class="suite-info-box" id="suiteInfoBox">
+                    <div class="suite-desc" id="suiteDesc">Loading suite details...</div>
+                    <div class="suite-stats">
+                        <span id="suiteCaseCount"><i class="fa-solid fa-vial"></i> 3 Test Cases</span>
+                        <span id="suiteModel"><i class="fa-solid fa-microchip"></i> Active: gemma-4-26b-a4b-it</span>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-wrap" id="benchmarkProgressWrap" style="display: none;">
+                    <div class="progress-header">
+                        <span id="progressStatusText">Executing test cases via Gemini API...</span>
+                        <span id="progressPercentText">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="benchmarkProgressBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Results Table / Live View -->
+                <div class="experiment-results-container">
+                    <div class="table-responsive">
+                        <table class="benchmark-table" id="benchmarkTable">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Test Case ID</th>
+                                    <th>Prompt / Scenario</th>
+                                    <th>Latency</th>
+                                    <th>Thinking Time</th>
+                                    <th>Validation / Output</th>
+                                </tr>
+                            </thead>
+                            <tbody id="benchmarkResultsBody">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted empty-state-row">
+                                        <i class="fa-solid fa-flask"></i> Select a test suite and click "Run Benchmark Suite" to evaluate Gemma 4.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted"><i class="fa-solid fa-shield-halved"></i> Real Gemini API inference with live token latency measurement. Non-fabricated evaluations.</span>
+                <button type="button" class="btn btn-secondary" id="closeExperimentFooterBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
