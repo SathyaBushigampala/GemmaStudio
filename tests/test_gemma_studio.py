@@ -24,6 +24,7 @@ import app as gemma_app
 class TestGemmaStudio(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        os.environ.setdefault("GEMINI_API_KEY", "test-mock-key-for-automated-suites")
         gemma_app.app.config["TESTING"] = True
         cls.client = gemma_app.app.test_client()
 
